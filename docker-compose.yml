@@ -1,0 +1,12 @@
+
+version: '3.8'
+networks:
+  default:
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    networks:
+      - default
+    ports:
+      - 6379:6379

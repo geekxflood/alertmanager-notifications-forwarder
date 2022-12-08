@@ -15,7 +15,8 @@ ENV CGO_ENABLED=0
 WORKDIR /go/src/
 COPY . .
 RUN apk update && apk add make git
-RUN make build
+RUN mkdir /go/src/build
+RUN go build -o build/amnf
 
 # Second stage
 FROM alpine:latest

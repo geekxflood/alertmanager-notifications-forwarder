@@ -1,0 +1,50 @@
+{
+    "receiver": "default",
+    "status": "firing",
+    "alerts": [
+        {
+            "status": "firing",
+            "labels": {
+                "alertname": "ThirdBogusAlert",
+                "env": "qa",
+                "group": "sup-system",
+                "instance": "cadvisor",
+                "job": "cadvisor",
+                "loc": "here",
+                "resp": "you",
+                "severity": "warning",
+                "theme": "infra",
+                "type": "container"
+            },
+            "annotations": {
+                "summary": "Third bogus Alert"
+            },
+            "startsAt": "2022-12-08T15:06:24.356Z",
+            "endsAt": "0001-01-01T00:00:00Z",
+            "generatorURL": "http://81347f9d8a4a:9090/graph?g0.expr=up%7Bjob%3D%22cadvisor%22%7D+%21%3D+1&g0.tab=1",
+            "fingerprint": "7c44de7d63b5beaf"
+        }
+    ],
+    "groupLabels": {
+        "alertname": "ThirdBogusAlert"
+    },
+    "commonLabels": {
+        "alertname": "ThirdBogusAlert",
+        "env": "qa",
+        "group": "sup-system",
+        "instance": "cadvisor",
+        "job": "cadvisor",
+        "loc": "here",
+        "resp": "you",
+        "severity": "warning",
+        "theme": "infra",
+        "type": "container"
+    },
+    "commonAnnotations": {
+        "summary": "Third bogus Alert"
+    },
+    "externalURL": "http://3ddfdb973bef:9093",
+    "version": "4",
+    "groupKey": "{}:{alertname=\"ThirdBogusAlert\"}",
+    "truncatedAlerts": 0
+}

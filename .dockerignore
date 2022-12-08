@@ -1,0 +1,6 @@
+.gitignore
+model/
+docker-compose.*
+LICENSE
+README.md
+doc
