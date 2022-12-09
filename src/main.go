@@ -5,71 +5,17 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/phpdave11/gofpdf"
 )
-
-type AlertManagerPayloadObject struct {
-	Receiver    string        `json:"receiver"`
-	Status      string        `json:"status"`
-	Alert       []AlertObject `json:"alerts"`
-	GroupLabels struct {
-		Alertname string `json:"alertname"`
-	} `json:"groupLabels"`
-	CommonLabels struct {
-		Alertname string `json:"alertname"`
-		Env       string `json:"env"`
-		Group     string `json:"group"`
-		Instance  string `json:"instance"`
-		Job       string `json:"job"`
-		Loc       string `json:"loc"`
-		Resp      string `json:"resp"`
-		Severity  string `json:"severity"`
-		Theme     string `json:"theme"`
-		Type      string `json:"type"`
-	} `json:"commonLabels"`
-	CommonAnnotations struct {
-		Summary string `json:"summary"`
-	} `json:"commonAnnotations"`
-	ExternalURL     string `json:"externalURL"`
-	Version         string `json:"version"`
-	GroupKey        string `json:"groupKey"`
-	TruncatedAlerts int    `json:"truncatedAlerts"`
-}
-
-type AlertObject struct {
-	Status string `json:"status"`
-	Labels struct {
-		Alertname string `json:"alertname"`
-		Env       string `json:"env"`
-		Group     string `json:"group"`
-		Instance  string `json:"instance"`
-		Job       string `json:"job"`
-		Loc       string `json:"loc"`
-		Resp      string `json:"resp"`
-		Severity  string `json:"severity"`
-		Theme     string `json:"theme"`
-		Type      string `json:"type"`
-	} `json:"labels"`
-	Annotations struct {
-		Summary string `json:"summary"`
-	} `json:"annotations"`
-	StartsAt     time.Time `json:"startsAt"`
-	EndsAt       time.Time `json:"endsAt"`
-	GeneratorURL string    `json:"generatorURL"`
-	Fingerprint  string    `json:"fingerprint"`
-}
 
 func sendEmail(alert AlertObject) error {
 	// Send the email
 	return nil
 }
-
 
 func alertFiringChecking(a AlertObject) (bool, error) {
 	ctx := context.Background()
@@ -134,7 +80,7 @@ func main() {
 					log.Println("New Alert", alert.Labels.Alertname, "is firing")
 
 					// New alert is firing, create the report document
-					reportGenerate(alert)
+					sendEmail(alert)
 				}
 
 			} else if alert.Status == "resolved" {
@@ -146,13 +92,9 @@ func main() {
 
 			}
 		}
-
-		}
-
 		return c.SendString("Success")
 	})
 
-	
 	app.Get("*", func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).SendString("Forbidden")
 	})
