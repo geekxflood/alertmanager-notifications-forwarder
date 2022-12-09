@@ -1,99 +1,163 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"log"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/gofiber/fiber/v2"
-	"github.com/joho/godotenv"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/phpdave11/gofpdf"
 )
 
-// TODO: do logic is alerts is new or not and handle resolve state
-// TODO: add function to send email
-
-func forwardAlert(c *fiber.Ctx, redisClient *redis.Client) {
-	var alert AlertManagerPayloadObject
-	// unmarshal the alert
-	err := json.Unmarshal([]byte(c.Body()), &alert)
-	if err != nil {
-		log.Println("Error unmarshalling the alert")
-		log.Println(err)
-		return
-	}
-
-	// check if the alert is a recovery
-	if alert.Status == "resolved" {
-		log.Println("Recovery alert")
-		return
-	}
-
-	// check if the alert is a new alert
-	if alert.Status == "firing" {
-		log.Println("New alert")
-	}
-
-	// forward the alert to the intended destination
-	// it is also mindfull of the protocol to use (HTTPS or SMTP)
-
+type AlertManagerPayloadObject struct {
+	Receiver    string        `json:"receiver"`
+	Status      string        `json:"status"`
+	Alert       []AlertObject `json:"alerts"`
+	GroupLabels struct {
+		Alertname string `json:"alertname"`
+	} `json:"groupLabels"`
+	CommonLabels struct {
+		Alertname string `json:"alertname"`
+		Env       string `json:"env"`
+		Group     string `json:"group"`
+		Instance  string `json:"instance"`
+		Job       string `json:"job"`
+		Loc       string `json:"loc"`
+		Resp      string `json:"resp"`
+		Severity  string `json:"severity"`
+		Theme     string `json:"theme"`
+		Type      string `json:"type"`
+	} `json:"commonLabels"`
+	CommonAnnotations struct {
+		Summary string `json:"summary"`
+	} `json:"commonAnnotations"`
+	ExternalURL     string `json:"externalURL"`
+	Version         string `json:"version"`
+	GroupKey        string `json:"groupKey"`
+	TruncatedAlerts int    `json:"truncatedAlerts"`
 }
 
-func main() {
+type AlertObject struct {
+	Status string `json:"status"`
+	Labels struct {
+		Alertname string `json:"alertname"`
+		Env       string `json:"env"`
+		Group     string `json:"group"`
+		Instance  string `json:"instance"`
+		Job       string `json:"job"`
+		Loc       string `json:"loc"`
+		Resp      string `json:"resp"`
+		Severity  string `json:"severity"`
+		Theme     string `json:"theme"`
+		Type      string `json:"type"`
+	} `json:"labels"`
+	Annotations struct {
+		Summary string `json:"summary"`
+	} `json:"annotations"`
+	StartsAt     time.Time `json:"startsAt"`
+	EndsAt       time.Time `json:"endsAt"`
+	GeneratorURL string    `json:"generatorURL"`
+	Fingerprint  string    `json:"fingerprint"`
+}
 
-	var portFiber string
-	var reedPwd string
+func sendEmail(alert AlertObject) error {
+	// Send the email
+	return nil
+}
 
-	// check is a .env file is present
-	// if yes, load it
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
 
-		portFiber = "3000"
-		reedPwd = ""
+func alertFiringChecking(a AlertObject) (bool, error) {
+	ctx := context.Background()
 
-	} else {
-		log.Println(".env file found")
-		portFiber = os.Getenv("PORT")
-		reedPwd = os.Getenv("REDIS_PASSWORD")
-	}
-
-	appFiber := fiber.New(fiber.Config{
-		DisableStartupMessage: true,
-	})
-	log.Println("AlertManager Notifications Forwarder is starting...")
-	log.Println("Application listening on port", portFiber)
-	log.Println("Connecting to Redis")
-	// Instantiate a new Redis client
-	reedClient := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: reedPwd,
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     string(os.Getenv("REDIS_HOST")),
+		Password: "",
 		DB:       0,
 	})
 
-	// Ping the Redis server to check if the connection is working
-	_, errRedis := reedClient.Ping().Result()
+	val, err := rdb.Get(ctx, string(a.Fingerprint)).Result()
+	switch {
+	case err == redis.Nil:
+		log.Println("key does not exist")
+		log.Println("Creating new key", string(a.Fingerprint), "with value 1")
+		err := rdb.Set(ctx, string(a.Fingerprint), "1", 0).Err()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		return true, nil
 
-	if errRedis != nil {
-		log.Println("Error connecting to Redis")
-		log.Fatalln(errRedis)
+	case err != nil:
+		log.Fatalln("Get failed", err)
+		return true, err
+	case val == "":
+		log.Fatalln("value is empty")
+		return true, err
 	}
 
-	log.Println("Connected to Redis")
+	if val == "1" {
+		log.Println("Alert already present", a.Labels.Alertname, "is firing")
+		return false, nil
+	}
 
-	appFiber.Get("*", func(c *fiber.Ctx) error {
-		// return the forbidden status code
-		return c.Status(403).SendString("Forbidden")
+	return true, nil
+}
+
+func main() {
+	app := fiber.New()
+
+	// Use the logger and recovery middleware
+	app.Use(logger.New())
+	app.Use(recover.New())
+
+	// Create the POST /alert endpoint
+	app.Post("/alert", func(c *fiber.Ctx) error {
+		// Parse the request body as an Alert object
+		var alertBody AlertManagerPayloadObject
+		if err := c.BodyParser(&alertBody); err != nil {
+			return c.Status(http.StatusBadRequest).SendString(err.Error())
+		}
+
+		for _, alert := range alertBody.Alert {
+			if alert.Status == "firing" {
+
+				newAlert, err := alertFiringChecking(alert)
+
+				if err != nil {
+					log.Fatalln(err)
+				}
+				if newAlert {
+					log.Println("New Alert", alert.Labels.Alertname, "is firing")
+
+					// New alert is firing, create the report document
+					reportGenerate(alert)
+				}
+
+			} else if alert.Status == "resolved" {
+				log.Println("Alert", alert.Labels.Alertname, "is resolved")
+				_, err := alertResolvedCheckings(alert)
+				if err != nil {
+					log.Fatalln(err)
+				}
+
+			}
+		}
+
+		}
+
+		return c.SendString("Success")
 	})
 
-	appFiber.Get("/forward", func(c *fiber.Ctx) error {
-
-		// forward the alert to the intended destination
-		// it is also mindfull of the protocol to use (HTTPS or SMTP)
-		go forwardAlert(c, reedClient)
-		return c.Status(300).SendString("Forwarding the alert")
+	
+	app.Get("*", func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusForbidden).SendString("Forbidden")
 	})
 
-	log.Fatalln(appFiber.Listen(":" + portFiber))
+	// Start the server on port 9847
+	log.Fatalln(app.Listen(":9847"))
 
 }
