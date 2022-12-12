@@ -16,6 +16,19 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
+// TODO: Function emailSender is call when the alert status is tested, implment a flag that will set is true is the alert is new or resolved. Then call emailSender if true.
+// TODO: GO Routine for the email sending
+// TODO: Use the config.yaml file to set config information (SMTP, Redis, etc)
+// TODO: Do testing (but I don't know how to implement test in go yet add that on my todo list)
+// TODO: Handle multiple templates HTML files through a template folder. If the folder is empty, use the default template.
+// TODO: Test and build the container
+// TODO: Pipeline the docker build and push to the docker hub or github container registry
+// TODO: Create pipeline for publishing an helm chart for this project
+// TODO: Find a better way to pass the AlertObject to the emailSender and alertChecking functions
+// TODO: Rename the alertChecking function to something better
+// TODO: Enable use of multiple SMTP servers through the config.yaml file
+// TODO: Structure the code better, maybe break down the code into multiple files and put that into a src folder
+
 func templater(a AlertObject) (string, error) {
 
 	// Create a new buffer to store the template result
@@ -94,9 +107,6 @@ func alertChecking(a AlertObject, state bool) (bool, error) {
 				return false, err
 			}
 
-			// Send an email
-			emailSender(a)
-			return true, nil
 		}
 		// ALERT RESOLVED
 	} else {
@@ -108,10 +118,6 @@ func alertChecking(a AlertObject, state bool) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-
-		// Send an email
-		emailSender(a)
-
 	}
 	return true, nil
 }
@@ -159,31 +165,56 @@ func main() {
 		}
 		// Iterate through the alerts
 		for _, alert := range alertBody.Alert {
+			var alertToSend bool
 			// Check if the alert is firing or resolved
-			if alert.Status == "firing" {
+			switch alert.Status {
+			case "firing":
 				// The alert is firing
 				// Check if the alert is already in the database
 				// If the alert is already in the database, do nothing
-				// newAlert will be false if the alert is already in the database
-				newAlert, err := alertChecking(alert, true)
-
+				// alertToSend will be false if the alert is already in the database
+				alertToSend, err := alertChecking(alert, true)
 				if err != nil {
-					log.Fatalln(err)
+					alertToSend = false
+					log.Println("Error while checking the alert Firing")
+					log.Println(err)
 				}
-				if newAlert {
+				if alertToSend {
 					log.Println("New Alert", alert.Labels.Alertname, "is firing")
-
 				}
+			case "resolved":
+				// The alert is resolved
 				// If the alert is resolved, delete it from the database if it is in the database
-			} else if alert.Status == "resolved" {
-				log.Println("Alert", alert.Labels.Alertname, "is resolved")
-				// The alert is resolved, no need to have the `newAlert` variable
+				// The alert is resolved, alertToSend is true so we can send the resolution email
+				alertToSend = true
 				_, err := alertChecking(alert, false)
 				if err != nil {
-					log.Fatalln(err)
+					alertToSend = false
+					log.Println("Error while checking the alert Resolved")
+					log.Println(err)
 				}
+				log.Println("Alert", alert.Labels.Alertname, "is resolved")
+			default:
+				// wtf is going on, the alert is neither firing nor resolved
+				// That is not possible
+				// Log and error and the full alert object
+				log.Println("Error, the alert is neither firing nor resolved")
+				// log print the alert object in a json format
+				log.Println(alert)
 
+				// alertToSend is definetly false, you don't wanna send that in an email atm
+				// Maybe in the future to the SRE boyz to know what is going on with the alert manager
+				// But for now, just log the error and do nothing
+				alertToSend = false
 			}
+
+			// If alertToSend is true, send the email
+			// That will means that either the alert is firing and new or that the alert is resolved
+			if alertToSend {
+				// Send the email in a goroutine
+				go emailSender(alert)
+			}
+
 		}
 		return c.SendString("Success")
 	})
