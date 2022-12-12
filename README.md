@@ -12,9 +12,13 @@ It will also mind if the alert has been resolved and will delete the alert from 
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| APP_PORT | Application port | 9847 |
 | REDIS_HOST | Redis host | localhost |
 | REDIS_PORT | Redis port | 6379 |
-| APP_PORT | Application port | 9847 |
+| SMTP_HOST | Remote SMTP host | localhost |
+| SMTP_PORT | Remote SMTP port | 587 |
+| SMTP_USERNAME | Remote SMTP username | username |
+| SMTP_PASSWORD | Remote SMTP password | password |
 
 ## Diagram
 

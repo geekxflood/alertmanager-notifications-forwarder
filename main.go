@@ -1,48 +1,70 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"html/template"
 	"log"
 	"net/http"
-	"net/smtp"
 	"os"
+	"strconv"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
+	"gopkg.in/gomail.v2"
 )
 
-// emailSender sends an email to the target user
-func emailSender() {
-	// Create a new TLS configuration
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true,
-	}
+func templater(a AlertObject) (string, error) {
 
-	// Connect to the email server
-	conn, err := tls.Dial("tcp", "mail.example.com:465", tlsConfig)
+	// Create a new buffer to store the template result
+	buff := new(bytes.Buffer)
+
+	// Parse the template file
+	t, err := template.ParseFiles("template.html")
 	if err != nil {
-		log.Panicln(err)
+		return "", err
 	}
-	defer conn.Close()
 
-	// Set up authentication information
-	auth := smtp.PlainAuth("", "user@example.com", "password", "mail.example.com")
+	// Generate the value from the template
+	err = t.ExecuteTemplate(buff, "template.html", a)
+	if err != nil {
+		return "", err
+	}
 
-	// Set up the email message
-	to := []string{"recipient@example.com"}
-	msg := []byte("To: recipient@example.com\r\n" +
-		"Subject: Hello from Golang\r\n" +
-		"\r\n" +
-		"This is a test email from Golang.\r\n")
+	return buff.String(), nil
+}
+
+// emailSender sends an email to the target user
+func emailSender(a AlertObject) {
+
+	// Generate the email body message
+	messageBody, err := templater(a)
+	if err != nil {
+		log.Println("Error while generating the email template")
+		log.Println(err)
+		return
+	}
+
+	// timeNow := time.Now()
+	portVal, _ := strconv.Atoi(os.Getenv("SMTP_PORT"))
+	// Create a new message
+	msg := gomail.NewMessage()
+	msg.SetHeader("From", os.Getenv("SMTP_FROM"))
+	msg.SetHeader("To", os.Getenv("SMTP_TO"))
+	msg.SetHeader("Subject", "Alarme "+a.Labels.Severity+" - "+a.Labels.Alertname)
+	// Use the file content as the email body and have it generated html from it's template
+	msg.SetBody("text/html", messageBody)
+
+	n := gomail.NewDialer(os.Getenv("SMTP_HOST"), portVal, os.Getenv("SMTP_USERNAME"), os.Getenv("SMTP_PASSWORD"))
+	n.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 
 	// Send the email
-	err = smtp.SendMail("mail.example.com:465", auth, "user@example.com", to, msg)
-	if err != nil {
-		log.Panic(err)
+	if err := n.DialAndSend(msg); err != nil {
+		log.Println("Error while sending the email")
+		log.Println(err)
 	}
-
 }
 
 // alertResolvedCheckings checks if the alert is already resolved or not
@@ -58,6 +80,7 @@ func alertChecking(a AlertObject, state bool) (bool, error) {
 		DB:       0,
 	})
 
+	// ALERT FIRING
 	if state {
 		// There is an alert firing
 		// Check if the alert is already in the database
@@ -70,9 +93,12 @@ func alertChecking(a AlertObject, state bool) (bool, error) {
 			if err != nil {
 				return false, err
 			}
+
+			// Send an email
+			emailSender(a)
 			return true, nil
 		}
-
+		// ALERT RESOLVED
 	} else {
 		// The alert is resolved
 		// Check if the alert is already in the database
@@ -82,6 +108,9 @@ func alertChecking(a AlertObject, state bool) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+
+		// Send an email
+		emailSender(a)
 
 	}
 	return true, nil
@@ -104,6 +133,10 @@ func main() {
 		os.Setenv("REDIS_HOST", "localhost")
 		os.Setenv("REDIS_PORT", "6379")
 		os.Setenv("APP_PORT", "9847")
+		os.Setenv("SMTP_HOST", "localhost")
+		os.Setenv("SMTP_PORT", "587")
+		os.Setenv("SMTP_USERNAME", "username")
+		os.Setenv("SMTP_PASSWORD", "password")
 	}
 
 	// Create a new Fiber app
