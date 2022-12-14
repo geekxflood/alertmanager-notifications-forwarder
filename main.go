@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,20 +15,110 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 	"gopkg.in/gomail.v2"
+	"gopkg.in/yaml.v3"
 )
 
-// TODO: Function emailSender is call when the alert status is tested, implment a flag that will set is true is the alert is new or resolved. Then call emailSender if true.
-// TODO: GO Routine for the email sending
-// TODO: Use the config.yaml file to set config information (SMTP, Redis, etc)
-// TODO: Do testing (but I don't know how to implement test in go yet add that on my todo list)
-// TODO: Handle multiple templates HTML files through a template folder. If the folder is empty, use the default template.
-// TODO: Test and build the container
-// TODO: Pipeline the docker build and push to the docker hub or github container registry
-// TODO: Create pipeline for publishing an helm chart for this project
-// TODO: Find a better way to pass the AlertObject to the emailSender and alertChecking functions
-// TODO: Rename the alertChecking function to something better
-// TODO: Enable use of multiple SMTP servers through the config.yaml file
-// TODO: Structure the code better, maybe break down the code into multiple files and put that into a src folder
+// ConfigObject is the object that contains the config information
+type ConfigObject struct {
+	IgnoreConfigFlag bool             `yaml:"configFlag"` // If the configFlag is true, config.yaml | config.yml is to be ignored
+	ConfigFlag       bool             `yaml:"configFlag"` // If the configFlag is true, config.yaml | config.yml exists
+	SMTPConfig       SMTPConfigObject `yaml:"smtpConfig"` // SMTP config information
+}
+
+type SMTPConfigObject struct {
+	SMTPServer  []SMTPServerObject `yaml:"smtpServer"`  // SMTP server information (host, port, username, password, fromEmail)
+	TargetEmail []string           `yaml:"targetEmail"` // Target email address
+}
+
+type SMTPServerObject struct {
+	Host      string `yaml:"host"`      // SMTP server host
+	Port      int    `yaml:"port"`      // SMTP server port
+	Username  string `yaml:"username"`  // SMTP server username
+	Password  string `yaml:"password"`  // SMTP server password
+	FromEmail string `yaml:"fromEmail"` // SMTP server from email address
+}
+
+// ConfigLoader loads the config.yaml | config.yml file
+func getConfig(c *ConfigObject) *ConfigObject {
+	// Check if there is a config.yaml | config.yml file in the current directory
+	// If there is a config.yaml | config.yml file, load the config from the config.yaml | config.yml file
+	if _, err := os.Stat("config.yaml"); err == nil {
+		// Load the config from the config.yaml file
+		fileSize, err := os.Stat("config.yaml")
+		if err != nil {
+			log.Printf("yamlFile.Get err #%v\n", err)
+			// config.yaml file is empty
+			c.ConfigFlag = false
+			return c
+		}
+
+		if fileSize.Size() == 0 {
+			// config.yaml file is empty
+			c.ConfigFlag = false
+			return c
+		}
+
+		// Load the config from the config.yaml file
+		yamlFile, err := os.Open("config.yaml")
+		if err != nil {
+			log.Fatalf("yamlFile.Get err #%v\n", err)
+		}
+		defer yamlFile.Close()
+
+		byteValue, _ := io.ReadAll(yamlFile)
+
+		err = yaml.Unmarshal(byteValue, c)
+		if err != nil {
+			log.Fatalf("Unmarshal: %v\n", err)
+		}
+
+		// config.yaml file exists
+		// Load the config from the config.yaml file
+		c.ConfigFlag = true
+
+	} else if _, err := os.Stat("config.yml"); err == nil {
+
+		// Test if config.yml is empty
+		fileSize, err := os.Stat("config.yml")
+		if err != nil {
+			log.Printf("yamlFile.Get err #%v\n", err)
+			// config.yml file is empty
+			c.ConfigFlag = false
+			return c
+		}
+
+		if fileSize.Size() == 0 {
+			// config.yml file is empty
+			c.ConfigFlag = false
+			return c
+		}
+
+		// Load the config from the config.yml file
+		yamlFile, err := os.Open("config.yml")
+		if err != nil {
+			log.Fatalf("yamlFile.Get err #%v\n", err)
+		}
+		defer yamlFile.Close()
+
+		byteValue, _ := io.ReadAll(yamlFile)
+
+		err = yaml.Unmarshal(byteValue, c)
+		if err != nil {
+			log.Fatalf("Unmarshal: %v\n", err)
+		}
+
+		// config.yml file exists
+		// Load the config from the config.yml file
+		c.ConfigFlag = true
+
+	} else {
+		// config.yaml | config.yml file does not exist
+		// Load the config from the environment variables
+		c.ConfigFlag = false
+	}
+
+	return c
+}
 
 func templater(a AlertObject) (string, error) {
 
@@ -60,7 +151,6 @@ func emailSender(a AlertObject) {
 		return
 	}
 
-	// timeNow := time.Now()
 	portVal, _ := strconv.Atoi(os.Getenv("SMTP_PORT"))
 	// Create a new message
 	msg := gomail.NewMessage()
@@ -83,6 +173,7 @@ func emailSender(a AlertObject) {
 // alertResolvedCheckings checks if the alert is already resolved or not
 // if the alert is already resolved, it will return false
 func alertChecking(a AlertObject, state bool) (bool, error) {
+
 	// Create a new context for the Redis client
 	ctx := context.Background()
 
@@ -124,25 +215,48 @@ func alertChecking(a AlertObject, state bool) (bool, error) {
 
 func main() {
 
-	// Check if there is a .env file in the current directory
-	// If there is a .env file, load the environment variables from the .env file
-	if _, err := os.Stat(".env"); err == nil {
-		// There is a .env file in the current directory
-		// Load the environment variables from the .env file
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatalln(err)
+	var config ConfigObject
+	config = *getConfig(&config)
+
+	// Check if the config is loaded from the environment variables
+	if !config.ConfigFlag {
+		// Check if there is a .env file in the current directory
+		// If there is a .env file, load the environment variables from the .env file
+		if _, err := os.Stat(".env"); err == nil {
+			// There is a .env file in the current directory
+			// Load the environment variables from the .env file
+			err := godotenv.Load()
+			if err != nil {
+				log.Fatalln(err)
+			}
+		} else {
+			// There is no .env file in the current directory
+			// Set default environment variables
+			os.Setenv("REDIS_HOST", "localhost")
+			os.Setenv("REDIS_PORT", "6379")
+			os.Setenv("APP_PORT", "9847")
+			os.Setenv("SMTP_HOST", "localhost")
+			os.Setenv("SMTP_PORT", "587")
+			os.Setenv("SMTP_USERNAME", "username")
+			os.Setenv("SMTP_PASSWORD", "password")
 		}
-	} else {
-		// There is no .env file in the current directory
-		// Set default environment variables
-		os.Setenv("REDIS_HOST", "localhost")
-		os.Setenv("REDIS_PORT", "6379")
-		os.Setenv("APP_PORT", "9847")
-		os.Setenv("SMTP_HOST", "localhost")
-		os.Setenv("SMTP_PORT", "587")
-		os.Setenv("SMTP_USERNAME", "username")
-		os.Setenv("SMTP_PASSWORD", "password")
+	}
+
+	// Create a new context for the Redis client
+	ctx := context.Background()
+
+	// Create a new Redis client
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
+		Password: "",
+		DB:       0,
+	})
+
+	// Check if the Redis client is connected
+	_, err := rdb.Ping(ctx).Result()
+	if err != nil {
+		log.Fatalln("Error while connecting to the Redis database")
+		log.Fatalln(err)
 	}
 
 	// Create a new Fiber app

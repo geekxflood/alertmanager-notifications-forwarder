@@ -2,11 +2,46 @@
 
 ## Description
 
-AMnF will forward any alert notification from an AlertManager
+AMnF will forward any alert notification from an AlertManager.
+
 It use a redis instance to be mindfull if the alert as already been sent or not.
+
 It will also mind if the alert has been resolved and will delete the alert from the redis instance after a certain amount of time.
 
+## Vectors
+
+| Input | Description |
+|-------|-------------|
+| AlertManager | AlertManager notification are received as a webhook POST and will be processed |
+
+| Output | Description |
+|--------|-------------|
+| Email | Email will be sent to the recipient when an Alert is firing or resolved |
+
+## TODO
+
+- [ ] Handle config file from config.yaml or config.yml
+- [ ] TTL for alerts to delete alert if AlerManager has not repeated the alert
+- [ ] Handle multiple SMTP servers
+- [ ] Handle multiple SMTP recipients
+- [ ] Able to use different templates for different alerts (based on labels or something else)
+- [ ] Create chart deployment for kubernetes
+- [ ] Break the code into multiple files
+- [ ] Add tests
+- [ ] Automate documentation with mkdocs and or godoc
+
+## Ideas
+
+- [ ] Store the alert object history
+  - That can be done by storing the alert object in another DB so we leave readis for the caching state. Using an object db like mongoDB or a lighter noSQL db like redisJSON (to explore)
+  - Can be used to create regular reports based diffrent criterias (time, type of alert, etc) and send them to the user through email (or other)
+- [ ] Add a web interface to see the alert history
+
 ## Configuration
+
+Configuration can be passed down as environment variables or as a config file.
+
+### config file
 
 ### Environment variables
 

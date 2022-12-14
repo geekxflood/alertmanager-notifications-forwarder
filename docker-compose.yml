@@ -3,6 +3,13 @@ version: '3.8'
 networks:
   default:
 services:
+  amnf:
+    image: ghcr.io/christopherime/alertmanager-notifications-forwarder:latest
+    container_name: amnf
+    networks:
+      - default
+    ports:
+      - 9847:9847
   redis:
     image: redis:latest
     container_name: redis

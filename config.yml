@@ -1,0 +1,9 @@
+configFlag: false
+smtpConfig: 
+  - host: "smtp.gmail.com"
+    port: "587"
+    username: "example"
+    password: "example"
+    from: "me@example.com"
+targetEmail:
+  - "you@yourself.com"
