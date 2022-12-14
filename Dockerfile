@@ -1,7 +1,5 @@
 FROM golang:1.19-alpine AS builder
 
-LABEL maintainer="Christophe Rime <christopherime@me.com>"
-
 ARG ARCH=amd64
 
 ENV GOROOT /usr/local/go
@@ -23,5 +21,4 @@ FROM alpine:latest
 
 COPY --from=builder /go/src/build/amnf /usr/local/bin/amnf
 RUN mkdir /etc/amnf
-COPY config.yml /etc/amnf/config.yml
-CMD ["/usr/local/bin/amnf", "-c", "/etc/amnf/config.yml"]
+CMD ["/usr/local/bin/amnf"]
