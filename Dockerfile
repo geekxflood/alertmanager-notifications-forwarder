@@ -11,7 +11,10 @@ ENV CGO_ENABLED=0
 
 # Build dependencies
 WORKDIR /go/src/
-COPY . .
+COPY ./src/* .
+COPY ./go.mod .
+COPY ./go.sum .
+COPY ./templates ./templates
 RUN apk update && apk add make git
 RUN mkdir /go/src/build
 RUN go build -o build/amnf

@@ -4,9 +4,9 @@
 
 AMnF will forward any alert notification from an AlertManager.
 
-It use a redis instance to be mindfull if the alert as already been sent or not.
+It uses a Redis instance to be mindful if the alert has already been sent or not.
 
-It will also mind if the alert has been resolved and will delete the alert from the redis instance after a certain amount of time.
+It will also mind if the alert has been resolved and will delete the alert from the Redis instance after a certain amount of time.
 
 ## Vectors
 
@@ -25,7 +25,7 @@ It will also mind if the alert has been resolved and will delete the alert from 
 - [ ] Handle multiple SMTP servers
 - [ ] Handle multiple SMTP recipients
 - [ ] Able to use different templates for different alerts (based on labels or something else)
-- [ ] Create chart deployment for kubernetes
+- [ ] Create chart deployment for Kubernetes
 - [ ] Break the code into multiple files
 - [ ] Add tests
 - [ ] Automate documentation with mkdocs and or godoc
@@ -33,8 +33,8 @@ It will also mind if the alert has been resolved and will delete the alert from 
 ## Ideas
 
 - [ ] Store the alert object history
-  - That can be done by storing the alert object in another DB so we leave readis for the caching state. Using an object db like mongoDB or a lighter noSQL db like redisJSON (to explore)
-  - Can be used to create regular reports based diffrent criterias (time, type of alert, etc) and send them to the user through email (or other)
+  - That can be done by storing the alert object in another DB so we leave Redis for the caching state. Using an object DB like MongoDB or a lighter NoSQL DB like redisJSON (to explore)
+  - Can be used to create regular reports based on different criteria (time, type of alert, etc) and send them to the user through email (or other)
 - [ ] Add a web interface to see the alert history
 
 ## Configuration

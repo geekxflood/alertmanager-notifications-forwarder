@@ -1,6 +1,11 @@
 .gitignore
-model/
+.env
 docker-compose.*
 LICENSE
 README.md
-doc
+.git/
+.github/
+charts/
+doc/
+model/
+scripts/
