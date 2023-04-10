@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine AS builder
+FROM golang:1.20-alpine AS builder
 
 ARG ARCH=amd64
 
@@ -11,17 +11,15 @@ ENV CGO_ENABLED=0
 
 # Build dependencies
 WORKDIR /go/src/
-COPY ./src/* .
-COPY ./go.mod .
-COPY ./go.sum .
-COPY ./templates ./templates
-RUN apk update && apk add make git
-RUN mkdir /go/src/build
-RUN go build -o build/amnf
+COPY . .
+RUN apk update && apk add git
+RUN go get ./...
+RUN mkdir /go/src/build 
+RUN go build -a -gcflags=all="-l -B" -ldflags="-w -s" -o build/amnf ./...
 
 # Second stage
-FROM alpine:latest
+FROM alpine:3.17
 
 COPY --from=builder /go/src/build/amnf /usr/local/bin/amnf
-RUN mkdir /etc/amnf
 CMD ["/usr/local/bin/amnf"]
+EXPOSE 9740

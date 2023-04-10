@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/go-redis/redis/v8"
@@ -17,26 +18,6 @@ import (
 	"gopkg.in/gomail.v2"
 	"gopkg.in/yaml.v3"
 )
-
-// ConfigObject is the object that contains the config information
-type ConfigObject struct {
-	IgnoreConfigFlag bool             `yaml:"configFlag"` // If the configFlag is true, config.yaml | config.yml is to be ignored
-	ConfigFlag       bool             `yaml:"configFlag"` // If the configFlag is true, config.yaml | config.yml exists
-	SMTPConfig       SMTPConfigObject `yaml:"smtpConfig"` // SMTP config information
-}
-
-type SMTPConfigObject struct {
-	SMTPServer  []SMTPServerObject `yaml:"smtpServer"`  // SMTP server information (host, port, username, password, fromEmail)
-	TargetEmail []string           `yaml:"targetEmail"` // Target email address
-}
-
-type SMTPServerObject struct {
-	Host      string `yaml:"host"`      // SMTP server host
-	Port      int    `yaml:"port"`      // SMTP server port
-	Username  string `yaml:"username"`  // SMTP server username
-	Password  string `yaml:"password"`  // SMTP server password
-	FromEmail string `yaml:"fromEmail"` // SMTP server from email address
-}
 
 // ConfigLoader loads the config.yaml | config.yml file
 func getConfig(c *ConfigObject) *ConfigObject {
@@ -120,19 +101,47 @@ func getConfig(c *ConfigObject) *ConfigObject {
 	return c
 }
 
+// func shouldSendEmail(alert AlertObject) bool {
+// 	// Add your custom label matching conditions here
+// 	if alert.Labels.Env == "production" && alert.Labels.Severity == "critical" {
+// 		return true
+// 	}
+// 	return false
+// }
+
 func templater(a AlertObject) (string, error) {
+
+	// Check if the banner image exists
+	assetPath := "assets/banner.png"
+	var banner string
+	if _, err := os.Stat(assetPath); !os.IsNotExist(err) {
+		banner = filepath.Base(assetPath)
+	}
+
+	// Create the assets object
+	assets := Assets{
+		Banner: banner,
+	}
 
 	// Create a new buffer to store the template result
 	buff := new(bytes.Buffer)
 
 	// Parse the template file
-	t, err := template.ParseFiles("template.html")
+	t, err := template.ParseFiles("templates/template.html")
 	if err != nil {
 		return "", err
 	}
 
 	// Generate the value from the template
-	err = t.ExecuteTemplate(buff, "template.html", a)
+	err = t.ExecuteTemplate(buff, "templates/template.html", struct {
+		Assets            interface{}
+		Labels            interface{}
+		CommonAnnotations interface{}
+	}{
+		Assets:            assets,
+		Labels:            a.Labels,
+		CommonAnnotations: a.Annotations,
+	})
 	if err != nil {
 		return "", err
 	}

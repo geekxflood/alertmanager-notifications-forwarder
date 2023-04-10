@@ -1,16 +1,54 @@
-<!-- 
-    Customize this template 
--->
+<!DOCTYPE html>
 <html>
-
-<body>
+<head>
+    <link rel="stylesheet" href="styles/dracula-ui.css" />
     <style>
+        /* Add your custom styles here */
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .summary-table th,
+        .summary-table td {
+            border: 1px solid;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        
+        .summary-table th {
+            font-weight: bold;
+        }
     </style>
-    <div>
-        <h1>
+</head>
+<body class="drac-bg-black">
+    <div class="content drac-text-white">
+        {{ if .Assets.Banner }}
+        <img src="{{ .Assets.Banner }}" alt="Banner" style="max-width: 100%; height: auto;"/>
+        {{ end }}
+        <h1 class="drac-text-red">
             Alert {{ .Labels.Severity }}
         </h1>
+        <div>
+            <h2>Summary:</h2>
+            <table class="summary-table drac-text">
+                <tbody>
+                {{ range $key, $value := .CommonAnnotations }}
+                    <tr>
+                        <td>{{ $key }}:</td>
+                        <td>{{ $value }}</td>
+                    </tr>
+                {{ end }}
+                </tbody>
+            </table>
+        </div>
     </div>
 </body>
-
 </html>
